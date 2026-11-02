@@ -1,0 +1,47 @@
+# Node & Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# AGS and system folders
+.agents/
+.ags-prompts/
+.cursor/
+
+# Temporary / Previous scripts
+*.py
+*.xlsx
+*.csv
+*.ics
+*.jsonf
+__pycache__/
+english/
+Lich_*.html
+Nhat_Ky_*.html
+TKB_*.md
+Thoi_Khoa_Bieu_*.md
+bai_hoc_*.md
+lo_trinh_*.md
+tam_ly_*.md
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+*.pem
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
