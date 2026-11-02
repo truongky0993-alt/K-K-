@@ -2,18 +2,32 @@
 
 import React, { useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
-import { LogOut } from "lucide-react";
+import { LogOut, Sparkles, Moon } from "lucide-react";
 import { Task } from "@/types";
-import { formatVietnamHeaderDate, getVietnamTodayStr } from "@/lib/date";
+import {
+  formatHeaderForDateStr,
+  getVietnamTodayStr,
+  getVietnamTomorrowStr,
+  getVietnamHour,
+} from "@/lib/date";
 
 interface HeaderProps {
   tasks: Task[];
+  selectedDate: string;
+  onSelectDate: (dateStr: string) => void;
   onLogout: () => void;
 }
 
-export function Header({ tasks, onLogout }: HeaderProps) {
+export function Header({ tasks, selectedDate, onSelectDate, onLogout }: HeaderProps) {
   const todayStr = getVietnamTodayStr();
-  const headerDateStr = formatVietnamHeaderDate();
+  const tomorrowStr = getVietnamTomorrowStr();
+  const currentHour = getVietnamHour();
+
+  const isToday = selectedDate === todayStr;
+  const isTomorrow = selectedDate === tomorrowStr;
+  const isLateNight = currentHour >= 23 || currentHour < 4; // 11h đêm đến 4h sáng
+
+  const headerDateStr = formatHeaderForDateStr(selectedDate);
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status).length;
@@ -24,7 +38,7 @@ export function Header({ tasks, onLogout }: HeaderProps) {
 
   // Xử lý bắn confetti nhẹ khi đạt 100% (chỉ 1 lần/ngày)
   useEffect(() => {
-    if (is100Percent && !confettiFiredRef.current) {
+    if (isToday && is100Percent && !confettiFiredRef.current) {
       const storageKey = `confetti_fired_${todayStr}`;
       const alreadyFired = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
 
@@ -41,13 +55,41 @@ export function Header({ tasks, onLogout }: HeaderProps) {
         });
       }
     }
-  }, [is100Percent, todayStr]);
+  }, [isToday, is100Percent, todayStr]);
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-50/90 backdrop-blur-md px-5 pt-4 pb-3 border-b border-slate-100 safe-top">
-      {/* Tiêu đề & Nút khoá */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">{headerDateStr}</h1>
+    <header className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-md px-5 pt-4 pb-3 border-b border-slate-100 safe-top">
+      {/* Thanh chọn Hôm nay / Ngày mai */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="inline-flex rounded-xl bg-slate-200/80 p-0.5 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => onSelectDate(todayStr)}
+            className={`rounded-lg px-3 py-1 transition-all ${
+              isToday
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Hôm nay
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectDate(tomorrowStr)}
+            className={`rounded-lg px-3 py-1 transition-all flex items-center space-x-1 ${
+              isTomorrow
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <span>Ngày mai</span>
+            {isLateNight && (
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            )}
+          </button>
+        </div>
+
+        {/* Nút khoá */}
         <button
           type="button"
           onClick={onLogout}
@@ -58,10 +100,27 @@ export function Header({ tasks, onLogout }: HeaderProps) {
         </button>
       </div>
 
+      {/* Tiêu đề ngày tiếng Việt */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">{headerDateStr}</h1>
+        {isLateNight && isToday && (
+          <button
+            type="button"
+            onClick={() => onSelectDate(tomorrowStr)}
+            className="inline-flex items-center space-x-1 rounded-full bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 active:scale-95 transition-all"
+          >
+            <Moon className="h-3 w-3 text-indigo-500" />
+            <span>23h: Lên việc ngày mai</span>
+          </button>
+        )}
+      </div>
+
       {/* Tiến độ ngày */}
       <div className="mt-3">
         {total === 0 ? (
-          <p className="text-xs font-medium text-slate-400">Chưa có việc hôm nay</p>
+          <p className="text-xs font-medium text-slate-400">
+            {isToday ? "Chưa có việc hôm nay" : "Chưa có việc ngày mai"}
+          </p>
         ) : (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-medium">
@@ -69,8 +128,9 @@ export function Header({ tasks, onLogout }: HeaderProps) {
                 {done}/{total} Hoàn thành ({percentage}%)
               </span>
               {is100Percent && (
-                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  Tuyệt vời! 🎉
+                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-flex items-center space-x-1">
+                  <Sparkles className="h-3 w-3" />
+                  <span>Hoàn tất 100%!</span>
                 </span>
               )}
             </div>

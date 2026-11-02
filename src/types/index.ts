@@ -14,6 +14,15 @@ export interface Task {
   isTemp?: boolean;
 }
 
+export interface RoutineTemplate {
+  id: string;
+  name: string;
+  timeSlot: TimeSlot;
+  priority: Priority;
+  active: boolean;
+  days: string[]; // T2, T3, T4, T5, T6, T7, CN (rỗng = mọi ngày)
+}
+
 export interface DayProgress {
   total: number;
   completed: number;

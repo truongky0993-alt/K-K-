@@ -8,6 +8,9 @@ import {
   updateTaskInNotion,
   archiveTaskInNotion,
   restoreTaskInNotion,
+  ensureRoutinesForDate,
+  getRolloverTasksFromNotion,
+  rollOverTasksToDate,
 } from "@/lib/notion";
 import { getVietnamTodayStr } from "@/lib/date";
 import { Task, TimeSlot, Priority, TaskCategory } from "@/types";
@@ -347,5 +350,60 @@ export async function verifyNotionSetupAction(): Promise<
     data: { botName, dbTitle, errors: [], warnings },
   };
 }
+
+/**
+ * Đảm bảo các Routine lặp lại hôm nay (hoặc ngày chỉ định) đã được sinh (Mục 2.3)
+ */
+export async function ensureRoutinesAction(dateStr?: string): Promise<ActionResult<{ createdCount: number }>> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const targetDate = dateStr || getVietnamTodayStr();
+    const count = await ensureRoutinesForDate(targetDate);
+    return { success: true, data: { createdCount: count } };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi sinh Routine" };
+  }
+}
+
+/**
+ * Lấy các task chưa xong từ trước để hiển thị Banner Rollover (Mục 5.B)
+ */
+export async function getRolloverTasksAction(): Promise<ActionResult<Task[]>> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const todayStr = getVietnamTodayStr();
+    const tasks = await getRolloverTasksFromNotion(todayStr);
+    return { success: true, data: tasks };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi đọc task Rollover" };
+  }
+}
+
+/**
+ * Chuyển các task chưa xong từ trước sang hôm nay (Mục 5.B)
+ */
+export async function rollOverTasksAction(taskIds: string[], targetDate?: string): Promise<ActionResult> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const date = targetDate || getVietnamTodayStr();
+    await rollOverTasksToDate(taskIds, date);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi chuyển task sang hôm nay" };
+  }
+}
+
 
 

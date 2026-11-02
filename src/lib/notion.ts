@@ -1,8 +1,9 @@
-import { Task, TaskCategory, TimeSlot, Priority } from "@/types";
-import { getVietnamTodayStr } from "./date";
+import { Task, TaskCategory, TimeSlot, Priority, RoutineTemplate } from "@/types";
+import { getVietnamTodayStr, getVietnamDayCodeFromStr, getVietnamDaysAgo } from "./date";
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+const NOTION_ROUTINE_DB_ID = process.env.NOTION_ROUTINE_DB_ID;
 const NOTION_VERSION = "2022-06-28";
 
 // Mock data khi người dùng chưa điền NOTION_API_KEY hoặc NOTION_DATABASE_ID
@@ -429,4 +430,179 @@ export async function restoreTaskInNotion(taskId: string): Promise<boolean> {
   });
   return true;
 }
+
+// In-flight lock để chống tạo trùng khi mở nhiều tab cùng lúc (Mục 2.3)
+const inFlightRoutineLock = new Set<string>();
+
+/**
+ * Đọc các Routine Templates đang hoạt động từ Notion
+ */
+export async function getActiveRoutineTemplates(): Promise<RoutineTemplate[]> {
+  const routineDbId = NOTION_ROUTINE_DB_ID || process.env.NOTION_ROUTINE_DB_ID;
+  if (!NOTION_API_KEY || !routineDbId) {
+    return [];
+  }
+
+  const payload = {
+    filter: {
+      property: "Active",
+      checkbox: {
+        equals: true,
+      },
+    },
+  };
+
+  try {
+    const data = await callNotionApi(`/databases/${routineDbId}/query`, "POST", payload);
+    const templates: RoutineTemplate[] = [];
+
+    for (const page of data.results || []) {
+      const props = page.properties || {};
+      const name = props.Name?.title?.[0]?.plain_text || "Thói quen";
+      const timeSlot = (props.TimeSlot?.select?.name as TimeSlot) || "Morning";
+      const priority = (props.Priority?.select?.name as Priority) || "Normal";
+      const active = Boolean(props.Active?.checkbox);
+      const days = (props.Days?.multi_select || []).map((d: any) => d.name);
+
+      templates.push({
+        id: page.id,
+        name,
+        timeSlot,
+        priority,
+        active,
+        days,
+      });
+    }
+
+    return templates;
+  } catch (err: any) {
+    console.error("Lỗi khi đọc Routine Templates:", err.message);
+    return [];
+  }
+}
+
+/**
+ * Sinh Routine tự động cho ngày chỉ định (Idempotent, chống tạo trùng - Mục 2.3)
+ */
+export async function ensureRoutinesForDate(dateStr: string): Promise<number> {
+  const routineDbId = NOTION_ROUTINE_DB_ID || process.env.NOTION_ROUTINE_DB_ID;
+  if (!NOTION_API_KEY || !NOTION_DATABASE_ID || !routineDbId) {
+    return 0;
+  }
+
+  // Khóa in-flight phía server
+  if (inFlightRoutineLock.has(dateStr)) {
+    return 0;
+  }
+  inFlightRoutineLock.add(dateStr);
+
+  try {
+    const dayCode = getVietnamDayCodeFromStr(dateStr); // T2, T3, T4, T5, T6, T7, CN
+    const templates = await getActiveRoutineTemplates();
+
+    // Lọc template hợp lệ với thứ của ngày dateStr (Days rỗng = mọi ngày)
+    const validTemplates = templates.filter(
+      (t) => t.days.length === 0 || t.days.includes(dayCode)
+    );
+
+    if (validTemplates.length === 0) {
+      return 0;
+    }
+
+    // Query task hôm nay có Category = Routine
+    const existingTasks = await getTasksForDate(dateStr);
+    const existingRoutineNames = new Set(
+      existingTasks
+        .filter((t) => t.category === "Routine")
+        .map((t) => t.name.trim().toLowerCase())
+    );
+
+    let createdCount = 0;
+    for (const template of validTemplates) {
+      const normalizedName = template.name.trim().toLowerCase();
+      // Nếu chưa có task cùng tên trong ngày, tạo mới
+      if (!existingRoutineNames.has(normalizedName)) {
+        await createTaskInNotion({
+          name: template.name,
+          date: dateStr,
+          category: "Routine",
+          timeSlot: template.timeSlot,
+          priority: template.priority,
+        });
+        existingRoutineNames.add(normalizedName);
+        createdCount++;
+      }
+    }
+
+    return createdCount;
+  } finally {
+    inFlightRoutineLock.delete(dateStr);
+  }
+}
+
+/**
+ * Lấy các task chưa xong từ các ngày trước (tối đa 7 ngày gần nhất) để Rollover (Mục 5.B)
+ * Loại trừ task Routine (Category ≠ Routine)
+ */
+export async function getRolloverTasksFromNotion(todayStr: string): Promise<Task[]> {
+  if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+    return [];
+  }
+
+  const sevenDaysAgoStr = getVietnamDaysAgo(7);
+
+  const payload = {
+    filter: {
+      and: [
+        {
+          property: "Date",
+          date: {
+            before: todayStr,
+          },
+        },
+        {
+          property: "Date",
+          date: {
+            on_or_after: sevenDaysAgoStr,
+          },
+        },
+        {
+          property: "Status",
+          checkbox: {
+            equals: false,
+          },
+        },
+      ],
+    },
+  };
+
+  try {
+    const data = await callNotionApi(`/databases/${NOTION_DATABASE_ID}/query`, "POST", payload);
+    const tasks: Task[] = [];
+
+    for (const page of data.results || []) {
+      const task = parseNotionPageToTask(page);
+      // Chỉ lấy task không phải Routine (theo mục 5.B)
+      if (task.category !== "Routine") {
+        tasks.push(task);
+      }
+    }
+
+    return tasks;
+  } catch (err: any) {
+    console.error("Lỗi khi đọc Rollover tasks:", err.message);
+    return [];
+  }
+}
+
+/**
+ * Chuyển các task cũ sang ngày hôm nay (Rollover action)
+ */
+export async function rollOverTasksToDate(taskIds: string[], targetDate: string): Promise<boolean> {
+  for (const taskId of taskIds) {
+    await updateTaskInNotion(taskId, { date: targetDate });
+  }
+  return true;
+}
+
 

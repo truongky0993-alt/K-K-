@@ -14,32 +14,70 @@ export function getVietnamTodayStr(date: Date = new Date()): string {
 }
 
 /**
- * Format chuỗi tiêu đề tiếng Việt: "Hôm nay, Thứ Hai • 02/11"
+ * Lấy chuỗi ngày Ngày Mai YYYY-MM-DD theo múi giờ Asia/Ho_Chi_Minh
  */
-export function formatVietnamHeaderDate(date: Date = new Date()): string {
+export function getVietnamTomorrowStr(): string {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  return getVietnamTodayStr(tomorrow);
+}
+
+/**
+ * Lấy giờ hiện tại (0-23) theo múi giờ VN
+ */
+export function getVietnamHour(): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    hour: "numeric",
+    hour12: false,
+  });
+  return parseInt(formatter.format(new Date()), 10);
+}
+
+/**
+ * Format chuỗi tiêu đề tiếng Việt: "Hôm nay, Thứ Hai • 02/11" hoặc "Ngày mai, Thứ Ba • 03/11"
+ */
+export function formatVietnamHeaderDate(date: Date = new Date(), customPrefix?: string): string {
   const weekdayFormatter = new Intl.DateTimeFormat("vi-VN", {
     timeZone: TIMEZONE,
     weekday: "long",
   });
   
   const rawWeekday = weekdayFormatter.format(date);
-  // Viết hoa chữ cái đầu: "thứ hai" -> "Thứ Hai"
   const weekday = rawWeekday
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
-  const todayStr = getVietnamTodayStr(date);
-  const [, month, day] = todayStr.split("-");
+  const dateStr = getVietnamTodayStr(date);
+  const [, month, day] = dateStr.split("-");
 
-  return `Hôm nay, ${weekday} • ${day}/${month}`;
+  const prefix = customPrefix !== undefined ? customPrefix : "Hôm nay";
+  return `${prefix ? prefix + ", " : ""}${weekday} • ${day}/${month}`;
 }
 
 /**
- * Lấy mã thứ tiếng Việt viết tắt (T2, T3, T4, T5, T6, T7, CN)
+ * Format chuỗi ngày từ YYYY-MM-DD
+ */
+export function formatHeaderForDateStr(dateStr: string): string {
+  const todayStr = getVietnamTodayStr();
+  const tomorrowStr = getVietnamTomorrowStr();
+
+  // Tạo đối tượng Date an toàn
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+
+  let prefix = "";
+  if (dateStr === todayStr) prefix = "Hôm nay";
+  else if (dateStr === tomorrowStr) prefix = "Ngày mai";
+
+  return formatVietnamHeaderDate(dateObj, prefix);
+}
+
+/**
+ * Lấy mã thứ tiếng Việt viết tắt (T2, T3, T4, T5, T6, T7, CN) cho 1 ngày
  */
 export function getVietnamDayCode(date: Date = new Date()): string {
-  // Lấy thứ trong tuần (0: CN, 1: T2, ..., 6: T7) theo giờ VN
   const weekdayStr = new Intl.DateTimeFormat("en-US", {
     timeZone: TIMEZONE,
     weekday: "short",
@@ -56,6 +94,15 @@ export function getVietnamDayCode(date: Date = new Date()): string {
   };
 
   return map[weekdayStr] || "T2";
+}
+
+/**
+ * Lấy mã thứ từ dateStr YYYY-MM-DD
+ */
+export function getVietnamDayCodeFromStr(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return getVietnamDayCode(dateObj);
 }
 
 /**
