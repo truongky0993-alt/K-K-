@@ -11,6 +11,7 @@ import {
   ensureRoutinesForDate,
   getRolloverTasksFromNotion,
   rollOverTasksToDate,
+  getMonthTaskSummaryFromNotion,
 } from "@/lib/notion";
 import { getVietnamTodayStr } from "@/lib/date";
 import { Task, TimeSlot, Priority, TaskCategory } from "@/types";
@@ -404,6 +405,27 @@ export async function rollOverTasksAction(taskIds: string[], targetDate?: string
     return { success: false, error: err.message || "Lỗi chuyển task sang hôm nay" };
   }
 }
+
+/**
+ * Lấy tóm tắt tiến độ các ngày trong tháng để hiển thị chấm trạng thái trên Calendar
+ */
+export async function getMonthSummaryAction(
+  year: number,
+  month: number
+): Promise<ActionResult<Record<string, { total: number; completed: number; hasHighPriority: boolean }>>> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const summary = await getMonthTaskSummaryFromNotion(year, month);
+    return { success: true, data: summary };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi đọc dữ liệu lịch tháng" };
+  }
+}
+
 
 
 

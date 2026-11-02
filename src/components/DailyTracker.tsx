@@ -12,12 +12,14 @@ import {
   ensureRoutinesAction,
   getRolloverTasksAction,
   rollOverTasksAction,
+  getMonthSummaryAction,
   checkAuthAction,
   logoutAction,
 } from "@/actions/tracker";
 import { Task, TimeSlot, Priority } from "@/types";
 import { getVietnamTodayStr } from "@/lib/date";
 import { Header } from "./Header";
+import { MonthCalendarBar } from "./MonthCalendarBar";
 import { TimeSlotGroup } from "./TimeSlotGroup";
 import { PinScreen } from "./PinScreen";
 import { QuickAddModal } from "./QuickAddModal";
@@ -142,6 +144,20 @@ export function DailyTracker() {
 
   const tasks: Task[] = tasksResult || [];
 
+  // Parse năm & tháng hiện tại để lấy tổng quan tiến độ của cả tháng cho thanh Calendar
+  const [selectedY, selectedM] = (selectedDate || todayStr).split("-").map(Number);
+
+  const { data: monthSummaryResult } = useQuery({
+    queryKey: ["month-summary", selectedY, selectedM],
+    queryFn: async () => {
+      const res = await getMonthSummaryAction(selectedY, selectedM);
+      if (!res.success) return {};
+      return res.data || {};
+    },
+    enabled: isAuthenticated === true,
+    staleTime: 30 * 1000,
+  });
+
   // ================= MUTATIONS =================
 
   // 1. Mutation cập nhật tick/untick (Optimistic Update)
@@ -173,6 +189,7 @@ export function DailyTracker() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["month-summary", selectedY, selectedM] });
     },
   });
 
@@ -229,6 +246,7 @@ export function DailyTracker() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["month-summary", selectedY, selectedM] });
     },
   });
 
@@ -261,6 +279,7 @@ export function DailyTracker() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: ["month-summary", selectedY, selectedM] });
     },
   });
 
@@ -394,6 +413,13 @@ export function DailyTracker() {
         onLogout={handleLogout}
       />
 
+      {/* Thanh công cụ Calendar theo tháng (Vuốt ngang / Lưới cả tháng) */}
+      <MonthCalendarBar
+        selectedDate={selectedDate}
+        onSelectDate={(newDate) => setSelectedDate(newDate)}
+        monthSummary={monthSummaryResult || {}}
+      />
+
       {/* Banner Rollover việc cũ chưa xong (Mục 5.B) */}
       <RolloverBanner
         rolloverTasks={rolloverTasks}
@@ -512,7 +538,9 @@ export function DailyTracker() {
           {tasks.length === 0 && (
             <div className="mt-16 text-center text-slate-400">
               <p className="text-sm font-medium">
-                {selectedDate === todayStr ? "Hôm nay chưa có việc nào" : "Ngày mai chưa có việc nào"}
+                {selectedDate === todayStr
+                  ? "Hôm nay chưa có việc nào"
+                  : `Ngày ${selectedDate.split("-").slice(1).reverse().join("/")} chưa có việc nào`}
               </p>
               <p className="text-xs mt-1 text-slate-300">
                 Bấm nút "+" để thêm việc hoặc mở bảng Routine Templates trên Notion

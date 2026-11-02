@@ -605,4 +605,77 @@ export async function rollOverTasksToDate(taskIds: string[], targetDate: string)
   return true;
 }
 
+/**
+ * Lấy tóm tắt số lượng công việc của từng ngày trong một tháng từ Notion
+ */
+export async function getMonthTaskSummaryFromNotion(
+  year: number,
+  month: number
+): Promise<Record<string, { total: number; completed: number; hasHighPriority: boolean }>> {
+  if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+    return {};
+  }
+
+  const mStr = String(month).padStart(2, "0");
+  const lastDay = new Date(year, month, 0).getDate();
+  const startDate = `${year}-${mStr}-01`;
+  const endDate = `${year}-${mStr}-${String(lastDay).padStart(2, "0")}`;
+
+  const summary: Record<string, { total: number; completed: number; hasHighPriority: boolean }> = {};
+
+  let hasMore = true;
+  let startCursor: string | undefined = undefined;
+
+  while (hasMore) {
+    const payload: any = {
+      start_cursor: startCursor,
+      page_size: 100,
+      filter: {
+        and: [
+          { property: "Date", date: { on_or_after: startDate } },
+          { property: "Date", date: { on_or_before: endDate } },
+        ],
+      },
+    };
+
+    try {
+      const data = await callNotionApi(`/databases/${NOTION_DATABASE_ID}/query`, "POST", payload);
+      for (const page of data.results || []) {
+        const date = page.properties?.Date?.date?.start?.split("T")[0];
+        if (!date) continue;
+
+        if (!summary[date]) {
+          summary[date] = { total: 0, completed: 0, hasHighPriority: false };
+        }
+        summary[date].total++;
+
+        const isCompleted = Boolean(page.properties?.Status?.checkbox);
+        if (isCompleted) {
+          summary[date].completed++;
+        }
+
+        const prio = page.properties?.Priority?.select?.name;
+        const title = page.properties?.Name?.title?.[0]?.plain_text || "";
+        if (
+          prio === "High" ||
+          title.includes("🔥") ||
+          title.toLowerCase().includes("giảng viên") ||
+          title.toLowerCase().includes("bế giảng")
+        ) {
+          summary[date].hasHighPriority = true;
+        }
+      }
+
+      hasMore = Boolean(data.has_more);
+      startCursor = data.next_cursor;
+    } catch (err: any) {
+      console.error("Lỗi khi đọc tóm tắt tháng từ Notion:", err.message);
+      break;
+    }
+  }
+
+  return summary;
+}
+
+
 

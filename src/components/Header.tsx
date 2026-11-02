@@ -119,7 +119,11 @@ export function Header({ tasks, selectedDate, onSelectDate, onLogout }: HeaderPr
       <div className="mt-3">
         {total === 0 ? (
           <p className="text-xs font-medium text-slate-400">
-            {isToday ? "Chưa có việc hôm nay" : "Chưa có việc ngày mai"}
+            {isToday
+              ? "Chưa có việc hôm nay"
+              : isTomorrow
+              ? "Chưa có việc ngày mai"
+              : `Chưa có việc cho ngày ${selectedDate.split("-").slice(1).reverse().join("/")}`}
           </p>
         ) : (
           <div className="space-y-1.5">

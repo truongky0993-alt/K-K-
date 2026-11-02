@@ -113,3 +113,40 @@ export function getVietnamDaysAgo(daysAgo: number): string {
   const past = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
   return getVietnamTodayStr(past);
 }
+
+/**
+ * Lấy số ngày trong tháng (1-12) của năm
+ */
+export function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/**
+ * Lấy danh sách các ngày trong tháng dạng YYYY-MM-DD
+ */
+export function getDaysArrayForMonth(year: number, month: number): string[] {
+  const daysCount = getDaysInMonth(year, month);
+  const mStr = String(month).padStart(2, "0");
+  const days: string[] = [];
+  for (let i = 1; i <= daysCount; i++) {
+    days.push(`${year}-${mStr}-${String(i).padStart(2, "0")}`);
+  }
+  return days;
+}
+
+/**
+ * Lấy thứ trong tuần (0: CN, 1: T2, ..., 6: T7) của ngày đầu tiên trong tháng
+ */
+export function getFirstDayWeekdayOfMonth(year: number, month: number): number {
+  return new Date(year, month - 1, 1).getDay();
+}
+
+/**
+ * Lấy thứ tiếng Việt ngắn cho một ngày (T2..CN)
+ */
+export function getShortWeekdayVi(dayOfWeek: number): string {
+  // 0: CN, 1: T2, 2: T3, 3: T4, 4: T5, 5: T6, 6: T7
+  const map = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+  return map[dayOfWeek] || "T2";
+}
+
