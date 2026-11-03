@@ -1,8 +1,11 @@
 import { Task, TaskCategory, TimeSlot, Priority, RoutineTemplate } from "@/types";
 import { getVietnamTodayStr, getVietnamDayCodeFromStr, getVietnamDaysAgo } from "./date";
 
+const DEFAULT_DB_ID = "40da5c9b-28fb-8155-af12-fdbcd0bb66f6";
+
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
-const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+const RAW_NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+const NOTION_DATABASE_ID = (!RAW_NOTION_DATABASE_ID || RAW_NOTION_DATABASE_ID.includes("40ca5c9b")) ? DEFAULT_DB_ID : RAW_NOTION_DATABASE_ID;
 const NOTION_ROUTINE_DB_ID = process.env.NOTION_ROUTINE_DB_ID;
 const NOTION_VERSION = "2022-06-28";
 
