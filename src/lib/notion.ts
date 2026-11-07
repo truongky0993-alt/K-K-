@@ -1,9 +1,10 @@
-import { Task, TaskCategory, TimeSlot, Priority, RoutineTemplate } from "@/types";
+import { Task, TaskCategory, TimeSlot, Priority, RoutineTemplate, DailyJournal, MoodType } from "@/types";
 import { getVietnamTodayStr, getVietnamDayCodeFromStr, getVietnamDaysAgo } from "./date";
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID || "40ca5c9b-28fb-81bc-9f77-e399d9a29502";
 const NOTION_ROUTINE_DB_ID = process.env.NOTION_ROUTINE_DB_ID || "40ca5c9b-28fb-8191-baeb-e34ef16d7408";
+const NOTION_JOURNAL_DB_ID = process.env.NOTION_JOURNAL_DB_ID || "411a5c9b-28fb-817c-b6bf-f5ab613f2973";
 const NOTION_VERSION = "2022-06-28";
 
 // Mock data khi người dùng chưa điền NOTION_API_KEY hoặc NOTION_DATABASE_ID
@@ -675,6 +676,125 @@ export async function getMonthTaskSummaryFromNotion(
   }
 
   return summary;
+}
+
+/**
+ * Lấy nhật ký của một ngày cụ thể (YYYY-MM-DD)
+ */
+export async function getJournalForDate(dateStr: string): Promise<DailyJournal | null> {
+  const journalDbId = NOTION_JOURNAL_DB_ID;
+  if (!NOTION_API_KEY || !journalDbId) {
+    return null;
+  }
+
+  try {
+    const data = await callNotionApi(`/databases/${journalDbId}/query`, "POST", {
+      filter: {
+        property: "Date",
+        date: {
+          equals: dateStr,
+        },
+      },
+      page_size: 1,
+    });
+
+    const results = data.results || [];
+    if (results.length === 0) return null;
+
+    const page = results[0];
+    const props = page.properties || {};
+
+    const moodName = (props.Mood?.select?.name as MoodType) || "😊 Hài lòng";
+    const learned = props.Learned?.rich_text?.map((t: any) => t.plain_text).join("") || "";
+    const unfinished = props.Unfinished?.rich_text?.map((t: any) => t.plain_text).join("") || "";
+    const obstacles = props.Obstacles?.rich_text?.map((t: any) => t.plain_text).join("") || "";
+    const actionPlan = props.ActionPlan?.rich_text?.map((t: any) => t.plain_text).join("") || "";
+    const aiFeedback = props.AIFeedback?.rich_text?.map((t: any) => t.plain_text).join("") || "";
+
+    return {
+      id: page.id,
+      date: dateStr,
+      mood: moodName,
+      learned,
+      unfinished,
+      obstacles,
+      actionPlan,
+      aiFeedback,
+      updatedAt: page.last_edited_time,
+    };
+  } catch (err) {
+    console.error("Lỗi khi lấy nhật ký từ Notion:", err);
+    return null;
+  }
+}
+
+/**
+ * Lưu hoặc cập nhật nhật ký cho một ngày (YYYY-MM-DD)
+ */
+export async function saveJournalInNotion(journal: DailyJournal): Promise<DailyJournal> {
+  const journalDbId = NOTION_JOURNAL_DB_ID;
+  if (!NOTION_API_KEY || !journalDbId) {
+    throw new Error("Chưa cấu hình NOTION_API_KEY hoặc NOTION_JOURNAL_DB_ID");
+  }
+
+  // Kiểm tra xem ngày này đã có trang nhật ký chưa
+  const existing = await getJournalForDate(journal.date);
+
+  const [y, m, d] = journal.date.split("-");
+  const formattedDateTitle = `Nhật ký ngày ${d}/${m}/${y}`;
+
+  const properties: any = {
+    Name: {
+      title: [{ text: { content: formattedDateTitle } }],
+    },
+    Date: {
+      date: { start: journal.date },
+    },
+    Mood: {
+      select: { name: journal.mood },
+    },
+    Learned: {
+      rich_text: [{ text: { content: journal.learned || "" } }],
+    },
+    Unfinished: {
+      rich_text: [{ text: { content: journal.unfinished || "" } }],
+    },
+    Obstacles: {
+      rich_text: [{ text: { content: journal.obstacles || "" } }],
+    },
+    ActionPlan: {
+      rich_text: [{ text: { content: journal.actionPlan || "" } }],
+    },
+  };
+
+  if (journal.aiFeedback) {
+    properties.AIFeedback = {
+      rich_text: [{ text: { content: journal.aiFeedback } }],
+    };
+  }
+
+  if (existing?.id) {
+    // Update existing page
+    const updated = await callNotionApi(`/pages/${existing.id}`, "PATCH", {
+      properties,
+    });
+    return {
+      ...journal,
+      id: updated.id,
+      updatedAt: updated.last_edited_time,
+    };
+  } else {
+    // Create new page
+    const created = await callNotionApi("/pages", "POST", {
+      parent: { database_id: journalDbId },
+      properties,
+    });
+    return {
+      ...journal,
+      id: created.id,
+      updatedAt: created.last_edited_time,
+    };
+  }
 }
 
 

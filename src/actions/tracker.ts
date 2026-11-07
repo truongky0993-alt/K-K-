@@ -12,9 +12,11 @@ import {
   getRolloverTasksFromNotion,
   rollOverTasksToDate,
   getMonthTaskSummaryFromNotion,
+  getJournalForDate,
+  saveJournalInNotion,
 } from "@/lib/notion";
 import { getVietnamTodayStr } from "@/lib/date";
-import { Task, TimeSlot, Priority, TaskCategory } from "@/types";
+import { Task, TimeSlot, Priority, TaskCategory, DailyJournal } from "@/types";
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -423,6 +425,44 @@ export async function getMonthSummaryAction(
     return { success: true, data: summary };
   } catch (err: any) {
     return { success: false, error: err.message || "Lỗi đọc dữ liệu lịch tháng" };
+  }
+}
+
+/**
+ * Lấy nhật ký của một ngày cụ thể (YYYY-MM-DD)
+ */
+export async function getDailyJournalAction(
+  dateStr: string
+): Promise<ActionResult<DailyJournal | null>> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const journal = await getJournalForDate(dateStr);
+    return { success: true, data: journal };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi khi tải nhật ký" };
+  }
+}
+
+/**
+ * Lưu hoặc cập nhật nhật ký cho một ngày (YYYY-MM-DD)
+ */
+export async function saveDailyJournalAction(
+  journal: DailyJournal
+): Promise<ActionResult<DailyJournal>> {
+  const isValid = await isSessionValid();
+  if (!isValid) {
+    return { success: false, error: "Chưa xác thực", code: "UNAUTHORIZED" };
+  }
+
+  try {
+    const saved = await saveJournalInNotion(journal);
+    return { success: true, data: saved };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Lỗi khi lưu nhật ký lên Notion" };
   }
 }
 

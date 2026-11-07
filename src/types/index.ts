@@ -28,3 +28,18 @@ export interface DayProgress {
   completed: number;
   percentage: number;
 }
+
+export type MoodType = '🌟 Xuất sắc' | '😊 Hài lòng' | '😐 Bình thường' | '⚠️ Cần cố gắng';
+
+export interface DailyJournal {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  mood: MoodType;
+  learned: string; // Học được gì
+  unfinished: string; // Chưa học gì / Tồn đọng
+  obstacles: string; // Thiếu sót & Trở ngại
+  actionPlan: string; // Kế hoạch sửa đổi ngày mai
+  aiFeedback?: string; // AI đánh giá / Phản hồi tuần
+  createdAt?: string;
+  updatedAt?: string;
+}

@@ -25,6 +25,7 @@ import { PinScreen } from "./PinScreen";
 import { QuickAddModal } from "./QuickAddModal";
 import { EditTaskModal } from "./EditTaskModal";
 import { RolloverBanner } from "./RolloverBanner";
+import { DailyJournalSection } from "./DailyJournalSection";
 import { RefreshCw, AlertCircle, RotateCcw } from "lucide-react";
 
 export function DailyTracker() {
@@ -532,6 +533,12 @@ export function DailyTracker() {
             onToggle={handleToggle}
             onEdit={(task) => setEditingTask(task)}
             onMoveSlot={handleQuickMoveSlot}
+          />
+
+          {/* 5. 📖 Nhật Ký Học Tập & Đánh Giá Cuối Ngày */}
+          <DailyJournalSection
+            selectedDate={selectedDate}
+            onToast={showToast}
           />
 
           {/* Nếu hoàn toàn không có task nào trong ngày */}
