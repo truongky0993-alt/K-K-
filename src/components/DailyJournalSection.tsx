@@ -99,7 +99,7 @@ export function DailyJournalSection({ selectedDate, onToast }: DailyJournalSecti
   const hasContent = Boolean(learned || unfinished || obstacles || actionPlan);
 
   return (
-    <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all">
+    <section id="daily-journal-section" className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all scroll-mt-24">
       {/* Header card */}
       <div
         className="flex cursor-pointer items-center justify-between"

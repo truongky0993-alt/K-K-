@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
-import { LogOut, Sparkles, Moon } from "lucide-react";
+import { LogOut, Sparkles, Moon, BookOpen, RotateCcw } from "lucide-react";
 import { Task } from "@/types";
 import {
   formatHeaderForDateStr,
@@ -89,15 +89,43 @@ export function Header({ tasks, selectedDate, onSelectDate, onLogout }: HeaderPr
           </button>
         </div>
 
-        {/* Nút khoá */}
-        <button
-          type="button"
-          onClick={onLogout}
-          title="Khoá ứng dụng"
-          className="p-1.5 text-slate-400 hover:text-slate-600 active:scale-95 transition-all"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+        <div className="flex items-center space-x-1.5">
+          {/* Nút nhảy nhanh xuống Nhật ký */}
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("daily-journal-section");
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }}
+            title="Đến mục Nhật ký học tập"
+            className="flex items-center space-x-1 rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 active:scale-95 transition-all"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>Nhật ký</span>
+          </button>
+
+          {/* Nút tải lại trang / nạp bản mới */}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            title="Tải lại trang để cập nhật"
+            className="p-1.5 text-slate-400 hover:text-slate-600 active:scale-95 transition-all"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+
+          {/* Nút khoá */}
+          <button
+            type="button"
+            onClick={onLogout}
+            title="Khoá ứng dụng"
+            className="p-1.5 text-slate-400 hover:text-slate-600 active:scale-95 transition-all"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Tiêu đề ngày tiếng Việt */}
